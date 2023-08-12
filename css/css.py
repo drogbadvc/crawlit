@@ -31,9 +31,15 @@ def hide_dev_menu():
     """
     st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
+def load_css(file_name: str):
+    with open(file_name) as f:
+        st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
 
 def all_css(is_max_main_width=True, is_hide_dev_menu=True):
     if is_max_main_width:
         max_main_width()
     if is_hide_dev_menu:
         hide_dev_menu()
+    load_css('css/static/main.css')
+    load_css('css/static/style.css')
+

@@ -1,0 +1,17 @@
+iframe {
+    background-color: #fff;
+    border-radius: 6px;
+    border: 1px solid #e5e5e5;
+    padding: 20px;
+    color: #283252;
+    transition: all .3s;
+}
+
+div[data-testid="stDataFrameResizable"] {
+    border: 1px solid #e5e5e5;
+    background: #FFFFFF
+}
+
+.appview-container {
+    background: #f9f9f9
+}

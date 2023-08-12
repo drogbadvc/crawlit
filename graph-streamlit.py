@@ -4,12 +4,13 @@ from css import all_css
 import graphistry, pandas as pd, numpy as np
 from components import GraphistrySt
 import os
-from components import cfgMaker, createDep, ValidAction, DataPandas
+from components import cfgMaker, createDep, ValidAction, chart_functions
 import subprocess
 import altair as alt
 from streamlit_echarts import st_echarts
 import json
-from collections import Counter
+from streamlit_apexjs import st_apexcharts
+
 
 page_title_str = "Graph dashboard"
 st.set_page_config(
@@ -49,85 +50,6 @@ def custom_css():
         """<style>
 
         </style>""", unsafe_allow_html=True)
-
-
-@st.cache_data()
-def status_code(dataframe):
-    # df2 = dataframe.loc[dataframe["response_code"].between("200", "299")]
-    # print(df2)
-    response_200 = DataPandas().response_code(200, dataframe)
-    response_301 = DataPandas().response_code(301, dataframe)
-    response_404 = DataPandas().response_code(404, dataframe)
-    response_500 = DataPandas().response_code(500, dataframe)
-
-    options = {
-        "color": ['#8269b2', '#ffeaa7', '#e17055', '#d63031'],
-        "tooltip": {"trigger": "item"},
-        "legend": {"top": "5%", "left": "center"},
-        "series": [
-            {
-                "name": "Response_code",
-                "type": "pie",
-                "radius": ['45%', '60%'],
-                "avoidLabelOverlap": False,
-                "itemStyle": {
-                    "borderRadius": 10,
-                    "borderColor": "#fff",
-                    "borderWidth": 1,
-                },
-                "label": {"show": False, "position": "center"},
-                "emphasis": {
-                    "label": {"show": True, "fontSize": "40", "fontWeight": "bold"}
-                },
-                "labelLine": {"show": False},
-                "data": [
-                    {"value": response_200, "name": "200"},
-                    {"value": response_301, "name": "301"},
-                    {"value": response_404, "name": "404"},
-                    {"value": response_500, "name": "500"}
-                ],
-            }
-        ],
-    }
-
-    return options
-
-
-@st.cache_data()
-def https_distribution(dataframe):
-    """Returns the distribution of URLs based on their protocol (HTTP or HTTPS)"""
-    https_count = dataframe[dataframe['url'].str.startswith('https://')].shape[0]
-    http_count = dataframe[dataframe['url'].str.startswith('http://')].shape[0]
-
-    options = {
-        "color": ['#82ca9d', '#ff9f40'],
-        "tooltip": {"trigger": "item"},
-        "legend": {"top": "5%", "left": "center"},
-        "series": [
-            {
-                "name": "Protocols",
-                "type": "pie",
-                "radius": ['45%', '60%'],
-                "avoidLabelOverlap": False,
-                "itemStyle": {
-                    "borderRadius": 10,
-                    "borderColor": "#fff",
-                    "borderWidth": 1,
-                },
-                "label": {"show": False, "position": "center"},
-                "emphasis": {
-                    "label": {"show": True, "fontSize": "40", "fontWeight": "bold"}
-                },
-                "labelLine": {"show": False},
-                "data": [
-                    {"value": https_count, "name": "HTTPS"},
-                    {"value": http_count, "name": "HTTP"}
-                ],
-            }
-        ],
-    }
-
-    return options
 
 
 @st.cache_data()
@@ -174,224 +96,6 @@ def links_per_depth(dataframe):
 
 
 @st.cache_data()
-def title_distribution(dataframe):
-    """Returns the percentage of pages with and without titles."""
-    total = dataframe.shape[0]
-    with_title = dataframe[dataframe['title'].notnull()].shape[0]
-    without_title = total - with_title
-
-    options = {
-        "color": ['#34a853', '#ea4335'],  # Colors for with and without titles
-        "tooltip": {
-            "trigger": "item",
-            "formatter": "{a} <br/>{b}: {c} ({d}%)"
-        },
-        "legend": {
-            "top": "5%",
-            "left": "center",
-            "data": ["With Title", "Without Title"]
-        },
-        "series": [
-            {
-                "name": "Titles",
-                "type": "pie",
-                "radius": ['45%', '60%'],
-                "avoidLabelOverlap": False,
-                "label": {
-                    "show": True,
-                    "position": "center"
-                },
-                "emphasis": {
-                    "label": {
-                        "show": True,
-                        "fontSize": "20",
-                        "fontWeight": "bold"
-                    }
-                },
-                "labelLine": {
-                    "show": False
-                },
-                "data": [
-                    {"value": with_title, "name": "With Title"},
-                    {"value": without_title, "name": "Without Title"}
-                ],
-            }
-        ],
-    }
-
-    return options
-
-
-@st.cache_data()
-def h1_distribution(dataframe):
-    """Returns the percentage of pages with and without h1."""
-    total = dataframe.shape[0]
-    with_h1 = dataframe[dataframe['h1'].notnull()].shape[0]
-    without_h1 = total - with_h1
-
-    options = {
-        "color": ['#4285f4', '#fbbc05'],  # Colors for with and without h1
-        "tooltip": {
-            "trigger": "item",
-            "formatter": "{a} <br/>{b}: {c} ({d}%)"
-        },
-        "legend": {
-            "top": "5%",
-            "left": "center",
-            "data": ["With H1", "Without H1"]
-        },
-        "series": [
-            {
-                "name": "H1 Tags",
-                "type": "pie",
-                "radius": ['45%', '60%'],
-                "avoidLabelOverlap": False,
-                "label": {
-                    "show": True,
-                    "position": "center"
-                },
-                "emphasis": {
-                    "label": {
-                        "show": True,
-                        "fontSize": "20",
-                        "fontWeight": "bold"
-                    }
-                },
-                "labelLine": {
-                    "show": False
-                },
-                "data": [
-                    {"value": with_h1, "name": "With H1"},
-                    {"value": without_h1, "name": "Without H1"}
-                ],
-            }
-        ],
-    }
-
-    return options
-
-
-@st.cache_data()
-def meta_description_distribution(dataframe):
-    """Returns the percentage of pages with and without meta description."""
-    total = dataframe.shape[0]
-    with_meta_description = \
-        dataframe[dataframe['meta_description'].notnull() & dataframe['meta_description'] != ''].shape[0]
-    without_meta_description = total - with_meta_description
-
-    options = {
-        "color": ['#34a853', '#ea4335'],  # Colors for with and without meta description
-        "tooltip": {
-            "trigger": "item",
-            "formatter": "{a} <br/>{b}: {c} ({d}%)"
-        },
-        "legend": {
-            "top": "5%",
-            "left": "center",
-            "data": ["With Meta Description", "Without Meta Description"]
-        },
-        "series": [
-            {
-                "name": "Meta Descriptions",
-                "type": "pie",
-                "radius": ['45%', '60%'],
-                "avoidLabelOverlap": False,
-                "label": {
-                    "show": True,
-                    "position": "center"
-                },
-                "emphasis": {
-                    "label": {
-                        "show": True,
-                        "fontSize": "20",
-                        "fontWeight": "bold"
-                    }
-                },
-                "labelLine": {
-                    "show": False
-                },
-                "data": [
-                    {"value": with_meta_description, "name": "With Meta Description"},
-                    {"value": without_meta_description, "name": "Without Meta Description"}
-                ],
-            }
-        ],
-    }
-
-    return options
-
-
-@st.cache_data()
-def wordcount_distribution(dataframe):
-    # Segment the dataframe based on wordcount
-    range_0_500 = dataframe[(dataframe['wordcount'] >= 0) & (dataframe['wordcount'] <= 500)].shape[0]
-    range_500_1000 = dataframe[(dataframe['wordcount'] > 500) & (dataframe['wordcount'] <= 1000)].shape[0]
-    range_1000_2000 = dataframe[(dataframe['wordcount'] > 1000) & (dataframe['wordcount'] <= 2000)].shape[0]
-    range_2000_plus = dataframe[dataframe['wordcount'] > 2000].shape[0]
-
-    categories = ["0-500", "500-1000", "1000-2000", "2000+"]
-    values = [range_0_500, range_500_1000, range_1000_2000, range_2000_plus]
-
-    options = {
-        "title": {
-            "text": "Word Count Distribution"
-        },
-        "tooltip": {},
-        "xAxis": {
-            "type": "category",
-            "data": categories
-        },
-        "yAxis": {
-            "type": "value"
-        },
-        "series": [{
-            "data": values,
-            "type": "bar",
-            "showBackground": True,
-            "backgroundStyle": {
-                "color": 'rgba(180, 180, 180, 0.2)'
-            }
-        }]
-    }
-
-    return options
-
-
-def pagerank_distribution(dataframe):
-    max_pagerank = dataframe['pagerank'].max()
-    rounded_pageranks = [round(10 * (pr / max_pagerank)) for pr in dataframe['pagerank']]
-
-    counted_pageranks = Counter(rounded_pageranks)
-
-    options = {
-        "title": {
-            "text": "Pageranks distribution"
-        },
-        "tooltip": {
-            "trigger": "axis",
-            "axisPointer": {
-                "type": "shadow"
-            },
-            "formatter": "{a} <br/>{b} : {c} URLs"
-        },
-        "xAxis": {
-            "type": "category",
-            "data": list(range(10, 0, -1))  # Invert the order for x-axis
-        },
-        "yAxis": {
-            "type": "value"
-        },
-        "series": [{
-            "name": "Number of URLs",
-            "data": [counted_pageranks.get(i, 0) for i in range(10, 0, -1)],  # Invert the order for data
-            "type": "bar"
-        }]
-    }
-
-    return options
-
-
-@st.cache_data()
 def run_filters(file, links_type):
     if links_type:
         links = pd.read_csv(file).drop_duplicates(subset=['target'])
@@ -425,6 +129,14 @@ def run_all():
         link_unique = st.sidebar.checkbox("Link unique for Visualization", key="disabled")
 
         dataConfig = [text_url, values, depth]
+
+        st.markdown("""
+            <style>
+                table.dataframe th, table.dataframe td {
+                    background-color: white !important;
+                }
+            </style>
+            """, unsafe_allow_html=True)
 
         if text_url:
             button_clicked = False
@@ -463,10 +175,9 @@ def run_all():
                 with st.container():
                     col1, col2 = st.columns(2)
                     with col1:
-                        st.header("HTTP Status Code Chart")
-                        st_echarts(
-                            options=status_code(dataFrame), height="300px",
-                        )
+                        options, series = chart_functions().status_code_apex(dataFrame)
+                        st.header("Response Code Distribution")
+                        st_apexcharts(options, series, 'pie', '600')
                     with col2:
                         depth_by_code = dataFrame.groupby(["level", "response_code"]).size().reset_index(name="count")
                         level = depth_by_code['level'].unique()
@@ -491,63 +202,19 @@ def run_all():
                         response_code_depth_400 = depth_by_code.query("response_code == '400'")
                         response_code_depth_500 = depth_by_code.query("response_code == '500'")
 
+                        options, series = chart_functions().http_status_code_by_depth_chart_apex(level,
+                                                                                                 response_code_depth_200,
+                                                                                                 df,
+                                                                                                 response_code_depth_400,
+                                                                                                 response_code_depth_500)
                         st.header("HTTP Status Code by Depth Chart")
-                        options = {
-                            "color": ['#797bf2', '#ffeaa7', '#e17055', '#d63031'],
-                            "tooltip": {"trigger": "axis", "axisPointer": {"type": "shadow"}},
-                            "legend": {
-                                "data": ["200", "300", "400", "500"]
-                            },
-                            "grid": {"bottom": 100},
-                            "yAxis": {"type": "value"},
-                            "xAxis": {
-                                "type": "category",
-                                "data": level.tolist(),
-                            },
-                            "series": [
-                                {
-                                    "name": "200",
-                                    "type": "bar",
-                                    "stack": "total",
-                                    "label": {"show": True},
-                                    "emphasis": {"focus": "series"},
-                                    "data": response_code_depth_200['count'].tolist(),
-                                },
-                                {
-                                    "name": "300",
-                                    "type": "bar",
-                                    "stack": "total",
-                                    "label": {"show": True},
-                                    "emphasis": {"focus": "series"},
-                                    "data": df['count'].tolist(),
-                                },
-                                {
-                                    "name": "400",
-                                    "type": "bar",
-                                    "stack": "total",
-                                    "label": {"show": True},
-                                    "emphasis": {"focus": "series"},
-                                    "data": response_code_depth_400['count'].tolist(),
-                                },
-                                {
-                                    "name": "500",
-                                    "type": "bar",
-                                    "stack": "total",
-                                    "label": {"show": True},
-                                    "emphasis": {"focus": "series"},
-                                    "data": response_code_depth_500['count'].tolist(),
-                                }
-                            ],
-                        }
-
-                        st_echarts(options=options, height="300px")
+                        st_apexcharts(options, series, 'bar', '600')
                 with st.container():
                     col1, col2 = st.columns(2)
                     with col1:
-                        st.header("HTTP/HTTPS Distribution")
-                        st_echarts(
-                            options=https_distribution(dataFrame), height="300px",
-                        )
+                        options, series = chart_functions().https_distribution_apex(dataFrame)
+                        st.header("HTTPS Distribution")
+                        st_apexcharts(options, series, 'radialBar', '600')
                     with col2:
                         st.header("Links per Depth")
                         st_echarts(
@@ -556,20 +223,19 @@ def run_all():
                 with st.container():
                     col1, col2, col3 = st.columns(3)
                     with col1:
+                        options, series = chart_functions().title_distribution_apex(dataFrame)
                         st.header("Title Distribution")
-                        st_echarts(
-                            options=title_distribution(dataFrame), height="300px",
-                        )
+                        st_apexcharts(options, series, 'radialBar', '600')
+
                     with col2:
-                        st.header("H1 Distribution")
-                        st_echarts(
-                            options=h1_distribution(dataFrame), height="300px",
-                        )
+                        options, series = chart_functions().h1_distribution_apex(dataFrame)
+                        st.header("H1 Tag Distribution")
+                        st_apexcharts(options, series, 'radialBar', '600')
+
                     with col3:
+                        options, series = chart_functions().meta_description_distribution_apex(dataFrame)
                         st.header("Meta Description Distribution")
-                        st_echarts(
-                            options=meta_description_distribution(dataFrame), height="300px",
-                        )
+                        st_apexcharts(options, series, 'radialBar', '600')
 
             if show_dataframe:
                 button_clicked = True
@@ -590,14 +256,15 @@ def run_all():
             if show_graph:
                 button_clicked = True
                 with st.container():
-                    st.header("Word Count Distribution")
-                    st_echarts(
-                        options=wordcount_distribution(dataFrame), height="300px",
-                    )
-                    st.header("PageRank Distribution")
-                    st_echarts(
-                        options=pagerank_distribution(dataFrame), height="300px",
-                    )
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        options, series = chart_functions().wordcount_distribution_apex(dataFrame)
+                        st.header("Word Count Distribution")
+                        st_apexcharts(options, series, 'bar', '600')
+                    with col2:
+                        options, series = chart_functions().pagerank_distribution_apex(dataFrame)
+                        st.header("PageRank Distribution")
+                        st_apexcharts(options, series, 'bar', '600')
             if not button_clicked and default_display == 'dataframe':
                 show_dataframe = True
                 st.dataframe(dataFrame, height=600)

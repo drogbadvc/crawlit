@@ -43,6 +43,7 @@ The distribution of response statuses, links by depth, and other information.
 - pymysql
 - twisted
 - adbapi
+- streamlit_apexjs
 
 ## Installation
 
