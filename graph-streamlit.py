@@ -11,7 +11,6 @@ from streamlit_echarts import st_echarts
 import json
 from streamlit_apexjs import st_apexcharts
 
-
 page_title_str = "Graph dashboard"
 st.set_page_config(
     layout="wide",  # Can be "centered" or "wide". In the future also "dashboard", etc.
@@ -39,7 +38,7 @@ def dataCSV(csv1, csv2):
     df2.pop('nofollow')
     df2.pop('disallow')
 
-    merge = pd.merge(df1, df2.drop_duplicates(subset=['url']), on='url', how='left')
+    merge = pd.merge(df1, df2.drop_duplicates(subset=['url']), on='url', how='left', suffixes=('', ''))
 
     return merge
 
@@ -96,19 +95,26 @@ def links_per_depth(dataframe):
 
 
 @st.cache_data()
-def run_filters(file, links_type):
+def run_filters(file, links_type, urls_file):
     if links_type:
         links = pd.read_csv(file).drop_duplicates(subset=['target'])
     else:
         links = pd.read_csv(file)
 
-    links["label"] = links.weight.map(lambda v: "#Meetings: %d" % v)
+    # Read the file containing pagerank
+    urls_df = pd.read_csv(urls_file)
+
+    # Merge links with urls_df to get pagerank
+    links = pd.merge(links, urls_df[['url', 'pagerank']], left_on='target', right_on='url', how='left')
+
+    links['pagerank'].fillna(0, inplace=True)
+    links["label"] = links.pagerank.map(lambda v: "Pagerank: %d" % int(v))
 
     graph_url = \
         graphistry. \
             edges(links) \
             .bind(source="source", destination="target") \
-            .bind(point_size="weight", edge_title="weight") \
+            .bind(point_size="pagerank", edge_title="pagerank") \
             .settings(url_params={'linLog': True, 'strongGravity': False, 'dissuadeHubs': True, 'play': 4000}) \
             .plot(render=False)
     return {'edges_df': links, 'graph_url': graph_url}
@@ -245,7 +251,7 @@ def run_all():
             # Selective mark these as URL params as well
             if show_visualization:
                 button_clicked = True
-                filter_pipeline_result = run_filters(root + '/_links.csv', link_unique)
+                filter_pipeline_result = run_filters(root + '/_links.csv', link_unique, urls_file)
 
                 # Render main viz area based on computed filter pipeline results and sidebar settings
                 main_area(**filter_pipeline_result)

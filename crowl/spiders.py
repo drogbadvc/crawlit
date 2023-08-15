@@ -253,9 +253,9 @@ class Crowler(CrawlSpider):
         self.logger.info("Spider closed")
 
     def calculate_page_rank(self):
-        # Création du graphique avec les liens et les poids
+        # Creation of graph with links and weights
         g = Graph.TupleList(edges=self.graph_edges, directed=True, weights=True)
         page_rank = g.pagerank(weights=g.es["weight"])
 
-        # Mettre à jour le dictionnaire global avec les nouveaux PageRanks
+        # Update global dictionary with new PageRanks
         self.pageranks.update(dict(zip(g.vs["name"], page_rank)))
