@@ -171,6 +171,7 @@ class CrowlCsvPipeline:
             'nb_h2',
             'wordcount',
             'content',
+            'content_lang',
             'XRobotsTag',
             'outlinks',
             'http_date',
@@ -192,7 +193,6 @@ class CrowlCsvPipeline:
             'source',
             'target',
             'text',
-            'weight',
             'nofollow',
             'disallow',
         ]

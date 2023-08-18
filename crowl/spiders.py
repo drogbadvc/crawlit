@@ -10,11 +10,16 @@ import json
 import extruct
 from trafilatura import extract
 from lxml import html
+import lxml.html
 
 from utils import *
 from pipelines import *
 from items import CrowlItem
 from igraph import Graph
+from langdetect import detect
+from bs4 import BeautifulSoup
+import pycountry
+import justext
 
 
 class Crowler(CrawlSpider):
@@ -26,7 +31,8 @@ class Crowler(CrawlSpider):
     pageranks = {}
 
     def __init__(self, url, links=False, links_unique=True, content=False, depth=5, exclusion_pattern=None,
-                 check_lang=False, extractors=None, store_request_headers=False, store_response_headers=False,
+                 check_lang=False, surfer="basic", extractors=None, store_request_headers=False,
+                 store_response_headers=False,
                  http_user=None, http_pass=None, *args, **kwargs):
         domain = urlparse(url).netloc
         # Setup the rules for link extraction
@@ -49,15 +55,12 @@ class Crowler(CrawlSpider):
         self.extractors = extractors  # Custom extractors ?
         self.store_request_headers = store_request_headers
         self.store_response_headers = store_response_headers
+        self.surfer = surfer
 
         # HTTP Auth
         if http_user and http_pass:
             self.http_user = http_user
             self.http_pass = http_pass
-
-        if self.check_lang:  # Should we check content language ?
-            import fasttext
-            self.model = fasttext.load_model('data/lid.176.bin')
 
         # robots.txt enhanced
         self.robots = Robots.fetch(urlparse(url).scheme + '://' + domain + '/robots.txt')
@@ -87,11 +90,140 @@ class Crowler(CrawlSpider):
             if response.meta.get('depth', 0) < (self.depth + 1):
                 yield self.parse_item(response)
 
+    def process_links(self, response):
+        content = response.body
+        page_url = response.url
+
+        tree = lxml.html.fromstring(content)
+
+        def search_count(search_list, dom_html):
+            return sum(1 for search in search_list if search.dom_path.replace('.', '/') == dom_html)
+
+        def links_density_real(text, chars_count):
+            text_length = len(text)
+            if text_length == 0:
+                return 0
+            return chars_count / text_length
+
+        def clean_text(array):
+            clean_arr = []
+            regex = r"[^a-zA-Z0-9'?! ]+"
+            subst = ""
+            for string in array:
+                string = string.replace('\t', '').replace('\r', '').replace('\n', '')
+                result = re.sub(regex, subst, string, 0, re.MULTILINE)
+                if result:
+                    clean_arr.append(result)
+            return clean_arr
+
+        def extract_text_from_html(html):
+            soup = BeautifulSoup(html, 'lxml')
+            text = soup.get_text(separator=' ')
+            return text
+
+        def detect_language(text):
+            return detect(text)
+
+        def iso_639_1_to_language_name(iso_code):
+            language = pycountry.languages.get(alpha_2=iso_code)
+            if language:
+                return language.name
+            else:
+                return None
+
+        text = extract_text_from_html(content)
+
+        language = detect_language(text)
+        language_name = iso_639_1_to_language_name(language)
+
+        paragraphs = justext.justext(content, justext.get_stoplist(language_name))
+        links_info = []
+        dom_arr = []
+        links_url = []
+        max = len(paragraphs)
+        c = 0
+
+        all_hrefs = []
+        for href in tree.xpath("//a/@href"):
+            all_hrefs.append(href)
+        all_hrefs = list(set(all_hrefs))
+
+        for paragraph in paragraphs:
+            c += 1
+            dom = paragraph.dom_path.replace('.', '/')
+            text1 = tree.xpath("//" + dom + "/a")
+            if len(text1) > 0:
+                density = paragraph.links_density()
+
+                def link_chars():
+                    return paragraph.chars_count_in_links
+
+                stopwords_density = paragraph.stopwords_density(justext.get_stoplist(language_name))
+                weight_pos = 1 - c / max
+
+                dom = paragraph.dom_path.replace('.', '/')
+                count = dom_arr.count(dom)
+                dom_arr.append(dom)
+                url = tree.xpath("//" + dom + "/a/@href")
+
+                url_text = tree.xpath("//" + dom + "/a//text()")
+                len_links = 9999999999
+
+                weight = (density - stopwords_density) - weight_pos
+                if weight == 1.0 and count < len(url_text):
+                    len_links = len(url_text[count])
+
+                if count < len(url):
+                    count_real = search_count(paragraphs, dom)
+                    count_url = links_url.count(url[count])
+
+                    if count_url == 0:
+                        links_info.append([weight, url[count], len_links])
+                    elif count_real < len(url) and count_real < len(clean_text(url_text)):
+                        len_links_real = len(clean_text(url_text)[count_real])
+                        weight_real = links_density_real(paragraph.text,
+                                                         link_chars()) - stopwords_density - weight_pos
+                        links_info.append([weight_real, url[count_real], 9999999999])
+                    links_url.append(url[count])
+
+                else:
+                    if count < len(url):
+                        count_real = search_count(paragraphs, dom)
+                        count_url = links_url.count(url[count])
+
+                        if count_url == 0:
+                            links_info.append([weight, url[count], len_links])
+                        elif count_real < len(url) and count_real < len(clean_text(url_text)):
+                            len_links_real = len(clean_text(url_text)[count_real])
+                            weight_real = links_density_real(paragraph.text,
+                                                             link_chars()) - stopwords_density - weight_pos
+                            links_info.append([weight_real, url[count_real], 9999999999])
+                        links_url.append(url[count])
+
+        missing_links = [href for href in all_hrefs if href not in [info[1] for info in links_info]]
+
+        for link in missing_links:
+            c += 1
+            weight_pos = 1 - c / max
+            links_info.append([weight_pos, link, 9999999999])
+
+        links_sorted = sorted(links_info, key=lambda d: d[0], reverse=False)
+        links_len_sorted = sorted(links_sorted, key=lambda d: d[2], reverse=True)
+
+        link_weights = {}
+        c = 0
+        for reason in links_len_sorted:
+            link_weights[reason[1]] = 1 - c / max
+            c += 1
+
+        return link_weights
+
     def parse_item(self, response):
         """
         Main function, parses response and extracts data.  
         """
         self.logger.info("{} ({})".format(response.url, response.status))
+        link_weights = self.process_links(response)
         i = CrowlItem()
         i['url'] = response.url
         i['response_code'] = response.status
@@ -170,9 +302,11 @@ class Crowler(CrawlSpider):
             if self.check_lang:  # Should we check content language ?
                 content_text = content_text.replace('\n', '')
                 content_text = content_text.replace('\r', '')
-                res = self.model.predict(content_text)
-                i['content_lang'] = res[0][0].replace("__label__", "")
-                i['content_lang_note'] = float(res[1][0])
+                try:
+                    detected_lang = detect(content_text)
+                    i['content_lang'] = detected_lang
+                except:
+                    i['content_lang'] = "unknown"
 
             if self.content:  # Should we store content ?
                 my_tree = html.fromstring(response.body.decode(response.encoding))
@@ -181,8 +315,9 @@ class Crowler(CrawlSpider):
             if self.links:  # Should we store links ?
                 outlinks = list()
                 links = LinkExtractor(unique=self.links_unique).extract_links(response)
+                missing_links = [link.url for link in links if link.url not in link_weights]
                 c = 0
-                max = len(links)
+                max_links = len(links)
                 for link in links:
                     lien = dict()
                     # Check if target is forbidden by robots.txt
@@ -197,10 +332,19 @@ class Crowler(CrawlSpider):
                     # Check if link nofollow
                     if link.nofollow:
                         lien['nofollow'] = True
-                    lien['text'] = str.strip(link.text)
-                    lien['source'] = response.url
-                    lien['target'] = link.url
-                    lien['weight'] = 1 - c / max
+
+                    if self.surfer == 'advanced':
+                        lien['text'] = str.strip(link.text)
+                        lien['source'] = response.url
+                        lien['target'] = link.url
+                        lien['weight'] = link_weights.get(link.url, 1 - c / max_links)
+
+                    elif self.surfer == 'basic':
+                        lien['text'] = str.strip(link.text)
+                        lien['source'] = response.url
+                        lien['target'] = link.url
+                        lien['weight'] = 1 - c / max_links
+
                     self.graph_edges.append((response.url, link.url, lien['weight']))
 
                     c = c + 1

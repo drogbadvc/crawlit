@@ -60,6 +60,7 @@ if __name__ == '__main__':
         'content': config.getboolean('EXTRACTION','CONTENT',fallback=False),
         'depth': int(config.get('EXTRACTION','DEPTH',fallback=5)),
         'exclusion_pattern': config.get('CRAWLER','EXCLUSION_PATTERN',fallback=None),
+        'surfer': config.get('EXTRACTION','SURFER',fallback=None),
         'check_lang': config.getboolean('EXTRACTION','CHECK_LANG',fallback=False),
         'extractors': extractors,
         'store_request_headers': config.getboolean('EXTRACTION','STORE_REQUEST_HEADERS',fallback=False),
