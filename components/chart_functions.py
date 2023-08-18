@@ -163,7 +163,7 @@ class chart_functions:
                 "breakpoint": 480,
                 "options": {
                     "chart": {
-                        "width": 200
+                        "width": 400
                     },
                     "legend": {
                         "position": "bottom"
@@ -195,7 +195,7 @@ class chart_functions:
 
         options = {
             "chart": {
-                "type": "pie",
+                "type": "donut",
                 "toolbar": {
                     "show": False
                 }
@@ -233,7 +233,7 @@ class chart_functions:
         """Returns the percentage of pages with and without meta descriptions."""
         total_urls = dataframe.shape[0]
         with_meta_description = \
-        dataframe[dataframe['meta_description'].notnull() & dataframe['meta_description'] != ''].shape[0]
+            dataframe[dataframe['meta_description'].notnull() & dataframe['meta_description'] != ''].shape[0]
         without_meta_description = total_urls - with_meta_description
 
         with_meta_description_percentage = (with_meta_description / total_urls) * 100
@@ -269,7 +269,7 @@ class chart_functions:
                 "breakpoint": 480,
                 "options": {
                     "chart": {
-                        "width": 200
+                        "width": 400
                     },
                     "legend": {
                         "position": "bottom"
@@ -331,7 +331,7 @@ class chart_functions:
                 "breakpoint": 480,
                 "options": {
                     "chart": {
-                        "width": 200
+                        "width": 400
                     },
                     "legend": {
                         "position": "bottom"
@@ -394,7 +394,7 @@ class chart_functions:
                 "breakpoint": 480,
                 "options": {
                     "chart": {
-                        "width": 200
+                        "width": 400
                     },
                     "legend": {
                         "position": "bottom"
@@ -415,6 +415,141 @@ class chart_functions:
         }
 
         series = [with_title_percentage, without_title_percentage]
+
+        return options, series
+
+    def links_per_depth_apex(self, dataframe):
+        """Returns the number of links per depth level for ApexCharts"""
+        levels = list(range(1, 11))  # Depth levels from 1 to 10
+        counts = []
+
+        for lvl in levels:
+            count = dataframe[dataframe['level'] == lvl].shape[0]
+            counts.append(count)
+
+        options = {
+            "chart": {
+                "type": "bar",
+                "toolbar": {
+                    "show": False
+                }
+            },
+            "colors": ['#6495ED'],  # Color for bars
+            "xaxis": {
+                "categories": [str(lvl) for lvl in levels]
+            },
+            "yaxis": {
+                "title": {
+                    "text": "Number of Links"
+                }
+            },
+            "title": {
+                "text": "Links per Depth Level",
+                "align": "center"
+            },
+            "plotOptions": {
+                "bar": {
+                    "horizontal": False
+                }
+            },
+            "dataLabels": {
+                "enabled": False
+            }
+        }
+
+        series = [{
+            "name": "Number of Links",
+            "data": counts
+        }]
+
+        return options, series
+
+    def latency_distribution_apex(self, dataframe):
+        # Convertir les latences en millisecondes et les arrondir
+        dataframe['latency_ms'] = (dataframe['latency'] * 1000).round()
+
+        # Catégoriser les latences
+        latency_0_200 = len(dataframe[(dataframe['latency_ms'] >= 0) & (dataframe['latency_ms'] <= 200)])
+        latency_200_500 = len(dataframe[(dataframe['latency_ms'] > 200) & (dataframe['latency_ms'] <= 500)])
+        latency_500_1000 = len(dataframe[(dataframe['latency_ms'] > 500) & (dataframe['latency_ms'] <= 1000)])
+        latency_over_1000 = len(dataframe[dataframe['latency_ms'] > 1000])
+
+        options = {
+            "chart": {
+                "type": "donut",
+                "toolbar": {
+                    "show": False
+                }
+            },
+            "colors": ['#8269b2', '#ffeaa7', '#e17055', '#d63031'],
+            "title": {
+                "text": "Latency Distribution"
+            },
+            "labels": ["0-200ms", "200-500ms", "500ms-1s", ">1s"],
+            "legend": {
+                "position": "top",
+                "horizontalAlign": "center"
+            },
+            "dataLabels": {
+                "enabled": False
+            },
+            "responsive": [{
+                "breakpoint": 480,
+                "options": {
+                    "chart": {
+                        "width": 400
+                    },
+                    "legend": {
+                        "position": "bottom"
+                    }
+                }
+            }]
+        }
+
+        series = [latency_0_200, latency_200_500, latency_500_1000, latency_over_1000]
+
+        return options, series
+
+    def language_distribution_apex(self, dataframe):
+        lang_counts = dataframe['content_lang'].value_counts()
+
+        total_urls = len(dataframe)
+        lang_percentages = (lang_counts / total_urls) * 100
+
+        labels = lang_percentages.index.tolist()
+        series = lang_percentages.values.tolist()
+
+        options = {
+            "chart": {
+                "type": "donut",
+                "toolbar": {
+                    "show": False
+                }
+            },
+            "colors": ['#8269b2', '#ffeaa7', '#e17055', '#d63031'],
+            "title": {
+                "text": "Language Distribution"
+            },
+            "labels": labels,
+            "legend": {
+                "position": "top",
+                "horizontalAlign": "center"
+            },
+            "dataLabels": {
+                "enabled": False
+            },
+            "responsive": [{
+                "breakpoint": 480,
+                "options": {
+                    "chart": {
+                        "width": 400
+                    },
+                    "legend": {
+                        "position": "bottom"
+                    }
+                }
+            }]
+        }
 
         return options, series
 

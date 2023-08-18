@@ -15,7 +15,9 @@ class cfgMaker:
                                 'LINKS_UNIQUE': False,
                                 'CONTENT': True,
                                 'DEPTH': datas[2],
-                                'MAX_REQUESTS': 20000
+                                'MAX_REQUESTS': 20000,
+                                'CHECK_LANG': datas[3],
+                                'SURFER': datas[4]
                                 }
         config['OUTPUT'] = {'crowl.CrowlCsvPipeline': 100}
 
