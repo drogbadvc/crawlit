@@ -337,13 +337,15 @@ class Crowler(CrawlSpider):
                         lien['text'] = str.strip(link.text)
                         lien['source'] = response.url
                         lien['target'] = link.url
-                        lien['weight'] = link_weights.get(link.url, 1 - c / max_links)
+                        weight = link_weights.get(link.url, 1 - c / max_links)
+                        lien['weight'] = max(weight, 0)
 
                     elif self.surfer == 'basic':
                         lien['text'] = str.strip(link.text)
                         lien['source'] = response.url
                         lien['target'] = link.url
-                        lien['weight'] = 1 - c / max_links
+                        weight = 1 - c / max_links
+                        lien['weight'] = max(weight, 0)
 
                     self.graph_edges.append((response.url, link.url, lien['weight']))
 
@@ -385,7 +387,7 @@ class Crowler(CrawlSpider):
 
                 i["extractors"] = json.dumps(extracted, ensure_ascii=False)
 
-        elif response.status > 300 and response.status < 400:
+        elif 300 < response.status < 400:
             loc = response.headers.get('location', None)
             if loc:  # get redirect location
                 i['redirect'] = loc.decode('utf-8')
