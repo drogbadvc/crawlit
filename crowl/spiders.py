@@ -194,7 +194,7 @@ class Crowler(CrawlSpider):
                         if count_url == 0:
                             links_info.append([weight, url[count], len_links])
                         elif count_real < len(url) and count_real < len(clean_text(url_text)):
-                            len_links_real = len(clean_text(url_text)[count_real])
+                            # len_links_real = len(clean_text(url_text)[count_real])
                             weight_real = links_density_real(paragraph.text,
                                                              link_chars()) - stopwords_density - weight_pos
                             links_info.append([weight_real, url[count_real], 9999999999])
